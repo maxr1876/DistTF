@@ -1,13 +1,36 @@
-import argparse
-import sys
-import math
 import socket
 import tensorflow as tf
-# Flags for defining the tf.train.ClusterSpec
+
+'''
+tf.app.flags is essentially a wrapper for Python's argparse. The values filled
+in below are the default values, and can be changed with command line arguments.
+For example, if you wanted to set the number of hidden units to 50, the appropriate
+call would be "python3 trainer.py --hidden_units 50". 
+
+In order to run TensorFlow in a distributed fashion, you must define the machines
+in your cluster. You are required to have at least one parameter server, and at
+least one worker. In this case, there is one parameter server and three workers.
+If using more than one param server or worker, ensure that there are no spaces
+between the names in the list (this caused a huge headache for me)!
+'''
+
 tf.app.flags.DEFINE_string("ps_hosts", "denver:42069",
                            "Comma-separated list of hostname:port pairs")
 tf.app.flags.DEFINE_string("worker_hosts", "albany:42069,boston:42069,raleigh:42069",
                            "Comma-separated list of hostname:port pairs")
+
+
+
+'''
+This portion of code will vary greatly from user to user based on cluster setup.
+I hard-coded in these machine names simply so I wouldn't have to pass them as
+command line args each time. This code is defining the job of each machine.
+There are two possible types of job: 'ps' and 'worker'. Within a job, each 
+machine is assigned different portions of work based on its task number.
+Since there is only one parameter server, its task_index within the job 'ps'
+is 0. As there are three machines with the job 'worker', they are assigned 
+task_index 0, 1, and 2. 
+'''
 name = socket.gethostname()
 # Flags for defining the tf.train.Server
 if name == 'denver':
@@ -22,6 +45,7 @@ elif name == 'boston':
 else:# name == raleigh
   tf.app.flags.DEFINE_string("job_name", "worker", "One of 'ps', 'worker'")
   tf.app.flags.DEFINE_integer("task_index", 2, "Index of task within the job")
+
 tf.app.flags.DEFINE_integer("hidden_units", 100,
                             "Number of units in the hidden layer of the NN")
 tf.app.flags.DEFINE_string("data_dir", "/tmp/mnist-data",
@@ -29,6 +53,7 @@ tf.app.flags.DEFINE_string("data_dir", "/tmp/mnist-data",
 tf.app.flags.DEFINE_integer("batch_size", 100, "Training batch size")
 
 FLAGS = tf.app.flags.FLAGS
+#Define the size of the training images
 IMAGE_PIXELS=28
 
 def weight_variable(shape):
